@@ -1,5 +1,14 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { createRequire } from "node:module";
+import { stripVTControlCharacters } from "node:util";
+
+export function parseDeviceCode(output: string): string | null {
+  return (
+    stripVTControlCharacters(output).match(
+      /\b[A-Z0-9]{4}-[A-Z0-9]{5}\b/,
+    )?.[0] ?? null
+  );
+}
 
 export class DeviceLogin {
   private child: ChildProcessWithoutNullStreams | null = null;
@@ -32,7 +41,7 @@ export class DeviceLogin {
       const lifetime = setTimeout(() => child.kill(), 15 * 60_000);
       const read = (chunk: Buffer) => {
         output = (output + chunk.toString()).slice(-8000);
-        const code = output.match(/\b[A-Z0-9]{4}-[A-Z0-9]{5}\b/)?.[0];
+        const code = parseDeviceCode(output);
         if (code && !found && !settled) {
           found = true;
           settled = true;
