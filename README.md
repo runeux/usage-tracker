@@ -9,7 +9,7 @@ A personal Telegram bot that watches Codex allowance, banked resets, and reset a
 - Notifies about a scheduled **5h reset only when the last observed remaining allowance was strictly below 30%**. Exactly 30% does not qualify.
 - Always notifies when a previously observed **weekly deadline** is crossed, including a completely unused window. The message reports the scheduled window ending; it does not invent a freshly observed 100% allowance.
 - Detects an **instant reset** when the weekly deadline changes by more than two minutes before its scheduled end and weekly allowance becomes 100%. Confirms the new deadline with another read after 30 seconds. An observed banked redemption, missing inventory, or unavailable credit data suppresses this inference. This identifies an account-level signature; it cannot prove which other accounts received a global reset.
-- Reports newly available banked credits by their backend ID, with their expiry in **UTC+5**. Also reports explicit redemption, expiry, and a reminder in the last 24 hours.
+- Reports newly available banked credits by their backend ID, with their expiry in **UTC+5**. Also reports explicit redemption, expiry, and expiry reminders at three days, one day, and two hours before expiration. Dates use UTC+5 throughout, without a repeated timezone suffix. Only the most urgent crossed reminder is sent after an outage; already-passed thresholds are not replayed on deployment.
 - Does not infer redemption merely because a credit disappears from a response. If a known expiry is crossed and the credit disappears, reports the deadline ending without claiming whether it was used first. Partial or invalid responses do not erase saved inventory.
 - Separately forwards new reset announcements from [tokenusage.dev](https://tokenusage.dev/resets), with source attribution and the original publication link. An announcement is never presented as proof of an account reset.
 - Reads other account announcements through the official Codex app-server workspace-message interface, when enabled for the account. This and tokenusage.dev are bounded sources, not a complete archive of the Codex team's social posts.
@@ -32,10 +32,11 @@ The owner is hardcoded in `src/config.ts`. Only that user's private chat is acce
 Example:
 
 ```text
-Weekly: 68%
-5h: 100%
+Weekly: 68% (until Dec 2, 2:47 AM)
+5h: 100% (until Nov 4, 3:41 AM)
 
-Full reset — Dec 2, 2:47 AM UTC+5
+Full reset — Dec 2, 2:47 AM
+Full reset will expire in 2h (Dec 2, 2:47 AM)
 ```
 
 Old cached data is labelled when a successful read is more than six minutes old. Missing initial data is explicitly reported.

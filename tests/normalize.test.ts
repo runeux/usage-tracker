@@ -111,22 +111,30 @@ describe("telegram presentation", () => {
       accountId: "test",
       checkedAt: 1000,
       ...normalizeUsage(usage),
+      weekly: {
+        remaining: 28,
+        resetsAt: Date.parse("2026-12-01T21:47:00Z") / 1000,
+      },
+      fiveHour: {
+        remaining: 67,
+        resetsAt: Date.parse("2026-11-03T22:41:00Z") / 1000,
+      },
       credits: null,
     };
     expect(usageMessage(snapshot, 1001)).toBe(
-      "<b>Weekly</b>: 28%\n<b>5h</b>: 67%",
+      "<b>Weekly</b>: 28% (until Dec 2, 2:47 AM)\n<b>5h</b>: 67% (until Nov 4, 3:41 AM)",
     );
     expect(usageMessage(snapshot, 2000)).toContain("данные устарели");
   });
-  test("reset labels use UTC+5 and the requested full reset title", () => {
+  test("reset labels use local time without a timezone suffix", () => {
     const credit = normalizeCredits({
       available_count: 1,
       credits: [rawCredit],
     })[0];
     if (!credit) throw new Error("missing fixture credit");
-    expect(creditLabel(credit)).toBe("Full reset — Dec 2, 2:47 AM UTC+5");
+    expect(creditLabel(credit)).toBe("Full reset — Dec 2, 2:47 AM");
     expect(resetsMessage([credit], 1000, 1001)).toEqual([
-      "<b>my resets</b>\nFull reset — Dec 2, 2:47 AM UTC+5",
+      "<b>my resets</b>\nFull reset — Dec 2, 2:47 AM",
     ]);
   });
   test("untrusted titles are escaped, and expired or redeemed credits are hidden", () => {

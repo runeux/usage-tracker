@@ -1,5 +1,6 @@
 import { creditLabel, formatDate } from "./messages";
 import type { Event, MonitorState, Snapshot } from "./model";
+import { EXPIRY_REMINDERS, expiryReminder } from "./reminders";
 
 const isUsed = (status: string) => status === "used" || status === "redeemed";
 
@@ -52,17 +53,13 @@ export function reconcile(
         kind: "banked-expired",
         text: `⌛ <b>banked reset истёк</b>\n${creditLabel(credit)}`,
       });
-    } else if (
-      credit.status === "available" &&
-      credit.expiresAt !== null &&
-      credit.expiresAt > current.checkedAt &&
-      credit.expiresAt - current.checkedAt <= 86_400
-    ) {
-      events.push({
-        id: `banked:expiring:${credit.id}`,
-        kind: "banked-expiring",
-        text: `⏳ <b>banked reset истекает в течение суток</b>\n${creditLabel(credit)}`,
-      });
+    } else {
+      const reminder = expiryReminder(
+        credit,
+        previous.creditsCheckedAt,
+        current.checkedAt,
+      );
+      if (reminder) events.push(reminder);
     }
   }
 
@@ -177,7 +174,11 @@ export function nextPollAt(
   }
   for (const credit of Object.values(state.knownCredits)) {
     if (credit.status !== "available" || credit.expiresAt === null) continue;
-    for (const due of [credit.expiresAt - 86_400, credit.expiresAt]) {
+    const expiresAt = credit.expiresAt;
+    for (const due of [
+      ...EXPIRY_REMINDERS.map((reminder) => expiresAt - reminder.seconds),
+      expiresAt,
+    ]) {
       if (due > now) next = Math.min(next, due + 5);
     }
   }

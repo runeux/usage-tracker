@@ -111,7 +111,7 @@ describe("reset detection", () => {
       ],
     ).toEqual(credit);
   });
-  test("expiry and the 24h reminder have stable event ids", () => {
+  test("expiry and the most urgent crossed reminder have stable event ids", () => {
     const before = baseline();
     const expiring = reconcile(
       before,
@@ -120,8 +120,8 @@ describe("reset detection", () => {
       }),
     );
     expect(
-      expiring.events.some((item) => item.kind === "banked-expiring"),
-    ).toBe(true);
+      expiring.events.find((item) => item.kind === "banked-expiring")?.id,
+    ).toBe("banked:expiring:2h:credit-1");
     const expired = reconcile(before, snapshot({ checkedAt: now + 172_805 }));
     expect(expired.events.some((item) => item.kind === "banked-expired")).toBe(
       true,

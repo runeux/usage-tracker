@@ -108,7 +108,7 @@ describe("telegram handlers", () => {
     await update("my resets");
     expect(messages[0]).toBe("<b>Weekly</b>: 68%\n<b>5h</b>: 100%");
     expect(messages[1]).toContain("Full reset — ");
-    expect(messages[1]).toContain("UTC+5");
+    expect(messages[1]).not.toContain("UTC+5");
     store.close();
   });
 });

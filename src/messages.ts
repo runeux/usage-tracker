@@ -1,4 +1,4 @@
-import type { Credit, Snapshot } from "./model";
+import type { Credit, Snapshot, UsageWindow } from "./model";
 
 export function escapeHtml(text: string): string {
   return text
@@ -20,21 +20,28 @@ export function formatDate(seconds: number): string {
     minute: "2-digit",
     hour12: true,
   }).format(date);
-  return `${day}, ${time} UTC+5`;
+  return `${day}, ${time}`;
+}
+
+export function creditTitle(credit: Credit): string {
+  return escapeHtml(credit.title.replace(/\s*\(Weekly \+ 5 hr\)/i, ""));
 }
 
 export function creditLabel(credit: Credit): string {
-  const title = credit.title.replace(/\s*\(Weekly \+ 5 hr\)/i, "");
-  return `${escapeHtml(title)} — ${credit.expiresAt === null ? "no expiry" : formatDate(credit.expiresAt)}`;
+  return `${creditTitle(credit)} — ${credit.expiresAt === null ? "no expiry" : formatDate(credit.expiresAt)}`;
 }
 
 export function usageMessage(snapshot: Snapshot | null, now: number): string {
   if (!snapshot)
     return "данные ещё не получены. бот повторит проверку автоматически.";
 
-  const percent = (value: number | undefined) =>
-    value === undefined ? "нет данных" : `${Math.round(value)}%`;
-  const usage = `<b>Weekly</b>: ${percent(snapshot.weekly?.remaining)}\n<b>5h</b>: ${percent(snapshot.fiveHour?.remaining)}`;
+  const windowText = (window: UsageWindow | null): string => {
+    if (!window) return "нет данных";
+    const until =
+      window.resetsAt === null ? "" : ` (until ${formatDate(window.resetsAt)})`;
+    return `${Math.round(window.remaining)}%${until}`;
+  };
+  const usage = `<b>Weekly</b>: ${windowText(snapshot.weekly)}\n<b>5h</b>: ${windowText(snapshot.fiveHour)}`;
   const stale = now - snapshot.checkedAt > 360;
   return stale
     ? `${usage}\n\n⚠️ данные устарели; последняя проверка: ${formatDate(snapshot.checkedAt)}`
