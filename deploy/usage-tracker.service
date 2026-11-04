@@ -1,0 +1,35 @@
+[Unit]
+Description=Codex usage tracker Telegram bot
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=usage-tracker
+Group=usage-tracker
+WorkingDirectory=/opt/usage-tracker
+EnvironmentFile=/opt/usage-tracker/.env
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=HOME=/var/lib/usage-tracker
+Environment=NODE_ENV=production
+ExecStart=/usr/local/bin/bun run build/index.js
+Restart=always
+RestartSec=10
+TimeoutStopSec=90
+KillMode=control-group
+UMask=0077
+StateDirectory=usage-tracker
+StateDirectoryMode=0700
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/usage-tracker
+RestrictSUIDSGID=true
+LockPersonality=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

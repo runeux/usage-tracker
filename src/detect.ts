@@ -1,0 +1,185 @@
+import { creditLabel, formatDate } from "./messages";
+import type { Event, MonitorState, Snapshot } from "./model";
+
+const isUsed = (status: string) => status === "used" || status === "redeemed";
+
+export function reconcile(
+  previous: MonitorState | null,
+  current: Snapshot,
+): {
+  state: MonitorState;
+  events: Event[];
+} {
+  if (previous && previous.snapshot.accountId !== current.accountId) {
+    throw new Error(
+      "codex account changed; refusing to compare different accounts",
+    );
+  }
+  const events: Event[] = [];
+  const knownCredits = { ...previous?.knownCredits };
+  let usedBanked = false;
+  for (const credit of current.credits ?? []) {
+    const old = knownCredits[credit.id];
+    knownCredits[credit.id] = credit;
+    if (!previous || previous.creditsCheckedAt === null) continue;
+    if (
+      credit.status === "available" &&
+      !old &&
+      (credit.expiresAt === null || credit.expiresAt > current.checkedAt)
+    ) {
+      events.push({
+        id: `banked:new:${credit.id}`,
+        kind: "banked-new",
+        text: `🎁 <b>новый banked reset</b>\n${creditLabel(credit)}`,
+      });
+    }
+    if (isUsed(credit.status) && old && !isUsed(old.status)) {
+      usedBanked = true;
+      events.push({
+        id: `banked:used:${credit.id}`,
+        kind: "banked-used",
+        text: `✅ <b>banked reset использован</b>\n${creditLabel(credit)}`,
+      });
+    }
+    const expired =
+      credit.status === "expired" ||
+      (credit.status === "available" &&
+        credit.expiresAt !== null &&
+        credit.expiresAt <= current.checkedAt);
+    if (expired && old?.status === "available") {
+      events.push({
+        id: `banked:expired:${credit.id}`,
+        kind: "banked-expired",
+        text: `⌛ <b>banked reset истёк</b>\n${creditLabel(credit)}`,
+      });
+    } else if (
+      credit.status === "available" &&
+      credit.expiresAt !== null &&
+      credit.expiresAt > current.checkedAt &&
+      credit.expiresAt - current.checkedAt <= 86_400
+    ) {
+      events.push({
+        id: `banked:expiring:${credit.id}`,
+        kind: "banked-expiring",
+        text: `⏳ <b>banked reset истекает в течение суток</b>\n${creditLabel(credit)}`,
+      });
+    }
+  }
+
+  if (previous && current.credits !== null) {
+    for (const credit of previous.snapshot.credits ?? []) {
+      if (
+        credit.status !== "available" ||
+        credit.expiresAt === null ||
+        credit.expiresAt > current.checkedAt ||
+        credit.expiresAt <= previous.snapshot.checkedAt ||
+        current.credits.some((item) => item.id === credit.id)
+      )
+        continue;
+      events.push({
+        id: `banked:expired:${credit.id}`,
+        kind: "banked-expiry-deadline",
+        text: `⌛ <b>срок действия banked reset завершился</b>\n${creditLabel(credit)}\nreset больше не отображается в списке; API не подтвердил, был ли он использован перед истечением срока.`,
+      });
+    }
+  }
+
+  let instantCandidate = previous?.instantCandidate ?? null;
+  if (previous) {
+    for (const [key, label] of [
+      ["weekly", "weekly"],
+      ["fiveHour", "5h"],
+    ] as const) {
+      const old = previous.snapshot[key];
+      const deadline = old?.resetsAt;
+      if (
+        !old ||
+        deadline == null ||
+        deadline > current.checkedAt ||
+        deadline <= previous.snapshot.checkedAt
+      )
+        continue;
+      if (key === "fiveHour" && old.remaining >= 30) continue;
+      events.push({
+        id: `scheduled:${key}:${deadline}`,
+        kind: `scheduled-${key}`,
+        text: `🔄 <b>плановый ${label} reset</b>\nокно завершилось ${formatDate(deadline)}.${key === "fiveHour" ? `\nперед сбросом оставалось ${Math.round(old.remaining)}%.` : ""}`,
+      });
+    }
+
+    const old = previous.snapshot.weekly;
+    const weekly = current.weekly;
+    const inventoryComplete =
+      current.credits !== null && previous.creditsCheckedAt !== null;
+    const missingBanked =
+      inventoryComplete &&
+      Object.values(previous.knownCredits).some(
+        (credit) =>
+          credit.status === "available" &&
+          (credit.expiresAt === null || credit.expiresAt > current.checkedAt) &&
+          !current.credits?.some((item) => item.id === credit.id),
+      );
+    if (usedBanked || missingBanked || !inventoryComplete) {
+      instantCandidate = null;
+    } else if (instantCandidate) {
+      if (
+        weekly?.resetsAt === instantCandidate.resetsAt &&
+        weekly.remaining <= 100
+      ) {
+        events.push({
+          id: `instant:${weekly.resetsAt}`,
+          kind: "instant",
+          text: `⚡ <b>внеплановый instant reset</b>\nпри первом наблюдении weekly: 100%; рамки weekly окна изменились до планового сброса.\nновый weekly reset: ${formatDate(weekly.resetsAt)}.\nпризнаков использования banked reset нет.`,
+        });
+        instantCandidate = null;
+      } else {
+        instantCandidate = null;
+      }
+    } else if (
+      old?.resetsAt &&
+      weekly?.resetsAt &&
+      weekly.remaining === 100 &&
+      old.resetsAt > current.checkedAt + 120 &&
+      Math.abs(weekly.resetsAt - old.resetsAt) > 120
+    ) {
+      instantCandidate = {
+        resetsAt: weekly.resetsAt,
+        firstSeenAt: current.checkedAt,
+      };
+    }
+  }
+
+  return {
+    state: {
+      snapshot: current,
+      knownCredits,
+      creditsCheckedAt:
+        current.credits === null
+          ? (previous?.creditsCheckedAt ?? null)
+          : current.checkedAt,
+      instantCandidate,
+    },
+    events,
+  };
+}
+
+export function nextPollAt(
+  state: MonitorState | null,
+  lastPollAt: number,
+  now: number,
+): number {
+  let next = lastPollAt + 300;
+  if (!state) return next;
+  if (state.instantCandidate) next = Math.min(next, now + 30);
+  for (const window of [state.snapshot.weekly, state.snapshot.fiveHour]) {
+    if (window?.resetsAt && window.resetsAt > now)
+      next = Math.min(next, window.resetsAt + 5);
+  }
+  for (const credit of Object.values(state.knownCredits)) {
+    if (credit.status !== "available" || credit.expiresAt === null) continue;
+    for (const due of [credit.expiresAt - 86_400, credit.expiresAt]) {
+      if (due > now) next = Math.min(next, due + 5);
+    }
+  }
+  return next;
+}

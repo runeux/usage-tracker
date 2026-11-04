@@ -1,0 +1,32 @@
+{
+  "name": "usage-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/main.ts",
+    "start": "bun run build/index.js",
+    "check": "biome check .",
+    "format": "biome check --write .",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "build": "bun build src/main.ts --target=bun --outdir=build --entry-naming=index.js --packages=external",
+    "verify": "bun run check && bun run typecheck && bun test && bun run build",
+    "doctor": "bun run scripts/check-source.ts",
+    "login": "bun node_modules/@openai/codex/bin/codex.js login --device-auth"
+  },
+  "dependencies": {
+    "@openai/codex": "^0.166.0",
+    "grammy": "^1.46.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.5",
+    "@types/bun": "^1.4.4",
+    "typescript": "^7.0.2"
+  },
+  "engines": {
+    "bun": ">=1.4.0"
+  },
+  "packageManager": "bun@1.4.4"
+}
