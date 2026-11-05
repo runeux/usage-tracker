@@ -21,7 +21,9 @@ let nextUsage = 0;
 let nextAnnouncements = 0;
 let nextDelivery = 0;
 let nextWorkspace = 0;
-const { bot, channel } = createTelegram(
+let nextDashboard = 0;
+let usagePoll: Promise<void> | null = null;
+const { bot, channel, dashboard } = createTelegram(
   config.token,
   store,
   login,
@@ -29,11 +31,19 @@ const { bot, channel } = createTelegram(
   () => {
     nextUsage = 0;
   },
+  pollUsage,
 );
 const channels = [channel];
 const channelIds = channels.map((item) => item.id);
 
-async function pollUsage(): Promise<void> {
+function pollUsage(): Promise<void> {
+  usagePoll ??= checkUsage().finally(() => {
+    usagePoll = null;
+  });
+  return usagePoll;
+}
+
+async function checkUsage(): Promise<void> {
   try {
     const { snapshot, creditsError } = await provider.read();
     const { state, events } = reconcile(store.load(), snapshot);
@@ -123,7 +133,6 @@ try {
   await bot.api.setMyCommands([
     { command: "start", description: "открыть меню" },
     { command: "usage", description: "оставшийся weekly / 5h лимит" },
-    { command: "resets", description: "доступные banked resets" },
     { command: "status", description: "состояние мониторинга" },
     { command: "login", description: "повторный вход в Codex" },
   ]);
@@ -141,7 +150,7 @@ try {
       {
         id: "monitor:installed",
         kind: "startup",
-        text: "✅ <b>usage tracker запущен на vps</b>\nпроверка каждые 5 минут; у weekly deadline — дополнительная проверка.\nusage и my resets доступны кнопками ниже. проценты — оставшийся лимит; время — UTC+5.",
+        text: "✅ <b>usage tracker запущен на vps</b>\nпроверка каждую минуту; у weekly deadline — дополнительная проверка.\nкнопка usage открывает live dashboard. проценты — оставшийся лимит; время — UTC+5.",
       },
     ],
     channelIds,
@@ -154,6 +163,14 @@ try {
     if (now >= nextAnnouncements) tasks.push(pollAnnouncements());
     if (now >= nextWorkspace) tasks.push(pollWorkspace());
     await Promise.all(tasks);
+    if (!stop && Date.now() / 1000 >= nextDashboard) {
+      try {
+        await dashboard.refresh();
+      } catch {
+        console.error("dashboard update failed; retrying next minute");
+      }
+      nextDashboard = Date.now() / 1000 + POLL_SECONDS;
+    }
     if (Date.now() / 1000 >= nextDelivery && !stop) {
       await deliverPending(store, channels, Date.now() / 1000);
       nextDelivery = Date.now() / 1000 + 5;

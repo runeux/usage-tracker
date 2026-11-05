@@ -1,9 +1,10 @@
 import { Bot, type Context, GrammyError, Keyboard } from "grammy";
 import type { CodexAuth } from "./auth";
 import { OWNER_ID } from "./config";
+import { Dashboard } from "./dashboard";
 import { type Channel, RejectedDelivery } from "./delivery";
 import type { DeviceLogin } from "./login";
-import { formatDate, resetsMessage, usageMessage } from "./messages";
+import { formatDate } from "./messages";
 import type { Store } from "./store";
 
 export function createTelegram(
@@ -12,13 +13,59 @@ export function createTelegram(
   login: DeviceLogin,
   auth: CodexAuth,
   refreshSoon: () => void,
-): { bot: Bot; channel: Channel } {
+  readNow: () => Promise<void>,
+): { bot: Bot; channel: Channel; dashboard: Dashboard } {
   const bot = new Bot(token, { client: { timeoutSeconds: 35 } });
-  const keyboard = new Keyboard()
-    .text("usage")
-    .text("my resets")
-    .resized()
-    .persistent();
+  const keyboard = new Keyboard().text("usage").resized().persistent();
+  const dashboard = new Dashboard(store, {
+    async send(text) {
+      if (store.get("dashboard_keyboard_ready") === null) {
+        const menu = await bot.api.sendMessage(OWNER_ID, "…", {
+          reply_markup: keyboard,
+          disable_notification: true,
+        });
+        await bot.api.deleteMessage(OWNER_ID, menu.message_id);
+        store.set("dashboard_keyboard_ready", "1");
+      }
+      const message = await bot.api.sendMessage(OWNER_ID, text, {
+        parse_mode: "HTML",
+      });
+      return message.message_id;
+    },
+    async edit(id, text) {
+      try {
+        await bot.api.editMessageText(OWNER_ID, id, text, {
+          parse_mode: "HTML",
+        });
+        return true;
+      } catch (error) {
+        if (
+          error instanceof GrammyError &&
+          error.description.includes("message is not modified")
+        )
+          return true;
+        if (
+          error instanceof GrammyError &&
+          error.description.includes("message to edit not found")
+        ) {
+          return false;
+        }
+        throw error;
+      }
+    },
+    async remove(id) {
+      try {
+        await bot.api.deleteMessage(OWNER_ID, id);
+      } catch (error) {
+        if (
+          error instanceof GrammyError &&
+          error.description.includes("message to delete not found")
+        )
+          return;
+        throw error;
+      }
+    },
+  });
 
   bot.use(async (ctx, next) => {
     if (
@@ -30,39 +77,25 @@ export function createTelegram(
     await next();
   });
   const replyUsage = async (ctx: Context) => {
-    await ctx.reply(
-      usageMessage(store.load()?.snapshot ?? null, Date.now() / 1000),
-      { parse_mode: "HTML", reply_markup: keyboard },
-    );
-  };
-  const replyResets = async (ctx: Context) => {
-    const state = store.load();
-    if (!state || state.creditsCheckedAt === null) {
-      await ctx.reply(
-        "список resets ещё не получен. бот повторит проверку автоматически.",
-        { reply_markup: keyboard },
-      );
-      return;
-    }
-    for (const text of resetsMessage(
-      state.snapshot.credits ?? Object.values(state.knownCredits),
-      state.creditsCheckedAt,
-      Date.now() / 1000,
-    )) {
-      await ctx.reply(text, { parse_mode: "HTML", reply_markup: keyboard });
+    try {
+      await dashboard.replace(readNow);
+    } catch (error) {
+      if (
+        error instanceof GrammyError &&
+        error.description.includes("message can't be deleted")
+      ) {
+        await ctx.reply(
+          "Telegram не разрешил удалить предыдущий dashboard. удали его вручную и снова нажми usage.",
+          { reply_markup: keyboard },
+        );
+        return;
+      }
+      throw error;
     }
   };
-  bot.command("start", async (ctx) => {
-    await ctx.reply(
-      "слежу за Codex каждые 5 минут. проценты показывают оставшийся лимит. время — UTC+5.\n/status — состояние, /login — повторный вход.",
-      { reply_markup: keyboard },
-    );
-    await replyUsage(ctx);
-  });
+  bot.command("start", replyUsage);
   bot.command("usage", replyUsage);
   bot.hears(/^usage$/i, replyUsage);
-  bot.command("resets", replyResets);
-  bot.hears(/^my resets$/i, replyResets);
   bot.command("status", async (ctx) => {
     const state = store.load();
     const deliveries = store
@@ -123,5 +156,5 @@ export function createTelegram(
       }
     },
   };
-  return { bot, channel };
+  return { bot, channel, dashboard };
 }

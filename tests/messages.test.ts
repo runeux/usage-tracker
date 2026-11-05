@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   creditLabel,
+  dashboardMessage,
   escapeHtml,
   resetsMessage,
   usageMessage,
@@ -34,7 +35,7 @@ function snapshot(): Snapshot {
 describe("usage presentation", () => {
   test("weekly within 24h includes the time; 5-hour always shows only time", () => {
     expect(usageMessage(snapshot(), now)).toBe(
-      "<b>Weekly: </b>21% – Nov 5, 11:05 PM\n<b>5-hour</b>: 100% – 7:16 PM",
+      "<b>weekly: </b>21% – Nov 5, 11:05 PM\n<b>5-hour</b>: 100% – 7:16 PM",
     );
   });
   test("weekly at least 24h away shows only its date", () => {
@@ -42,13 +43,13 @@ describe("usage presentation", () => {
       const data = snapshot();
       data.weekly = { remaining: 21, resetsAt: now + seconds };
       expect(usageMessage(data, now).split("\n")[0]).toBe(
-        `<b>Weekly: </b>21% – Nov ${seconds === 86_400 ? 6 : 7}`,
+        `<b>weekly: </b>21% – Nov ${seconds === 86_400 ? 6 : 7}`,
       );
     }
     const data = snapshot();
     data.weekly = { remaining: 21, resetsAt: now + 86_399 };
     expect(usageMessage(data, now).split("\n")[0]).toBe(
-      "<b>Weekly: </b>21% – Nov 6, 8:46 PM",
+      "<b>weekly: </b>21% – Nov 6, 8:46 PM",
     );
   });
   test("missing windows or deadlines do not invent a date or allowance", () => {
@@ -56,7 +57,7 @@ describe("usage presentation", () => {
     data.weekly = null;
     data.fiveHour = { remaining: 100, resetsAt: null };
     expect(usageMessage(data, now)).toBe(
-      "<b>Weekly: </b>нет данных\n<b>5-hour</b>: 100%",
+      "<b>weekly: </b>нет данных\n<b>5-hour</b>: 100%",
     );
     expect(usageMessage(null, now)).toContain("ещё не получены");
   });
@@ -73,16 +74,16 @@ describe("reset presentation", () => {
       credit,
     ];
     expect(resetsMessage(credits, now, now)).toEqual([
-      "<b>・ Full reset</b> – in 3 hours (Nov 5, 11:47 PM)\n<b>・ Full reset</b> – in 2 days (Nov 7)\n<b>・ Full reset</b> – in 3 weeks (Nov 26)",
+      "<b>weekly reset</b> – in 3 hours (Nov 5, 11:47 PM)\n<b>weekly reset</b> – in 2 days (Nov 7)\n<b>weekly reset</b> – in 3 weeks (Nov 26)",
     ]);
   });
   test("exactly 24 hours uses a date; below 24 hours includes time", () => {
     expect(
       resetsMessage([{ ...credit, expiresAt: now + 86_400 }], now, now)[0],
-    ).toBe("<b>・ Full reset</b> – in 1 day (Nov 6)");
+    ).toBe("<b>weekly reset</b> – in 1 day (Nov 6)");
     expect(
       resetsMessage([{ ...credit, expiresAt: now + 86_399 }], now, now)[0],
-    ).toBe("<b>・ Full reset</b> – in 23 hours (Nov 6, 8:46 PM)");
+    ).toBe("<b>weekly reset</b> – in 23 hours (Nov 6, 8:46 PM)");
   });
   test("relative units handle singulars, minutes, and sub-minute expiry", () => {
     for (const [seconds, text] of [
@@ -98,13 +99,13 @@ describe("reset presentation", () => {
   });
   test("non-expiring credits do not invent a deadline", () => {
     expect(resetsMessage([{ ...credit, expiresAt: null }], now, now)).toEqual([
-      "<b>・ Full reset</b> – no expiry",
+      "<b>weekly reset</b> – no expiry",
     ]);
   });
-  test("titles are escaped and terminal or expired credits are hidden", () => {
+  test("reset labels are fixed and terminal or expired credits are hidden", () => {
     expect(
       resetsMessage([{ ...credit, title: "<b>reset</b> & free" }], now, now)[0],
-    ).toStartWith("<b>・ &lt;b&gt;reset&lt;/b&gt; &amp; free</b> – ");
+    ).toStartWith("<b>weekly reset</b> – ");
     expect(escapeHtml("A&B<C>")).toBe("A&amp;B&lt;C&gt;");
     expect(
       resetsMessage(
@@ -133,4 +134,25 @@ describe("reset presentation", () => {
     );
     expect(creditLabel(credit)).toBe("Full reset — Nov 5, 11:47 PM");
   });
+});
+
+test("combined dashboard is exactly one bounded message", () => {
+  const data = snapshot();
+  data.credits = Array.from({ length: 150 }, (_, i) => ({
+    ...credit,
+    id: String(i),
+  }));
+  const text = dashboardMessage(
+    {
+      snapshot: data,
+      knownCredits: {},
+      creditsCheckedAt: now,
+      instantCandidate: null,
+    },
+    now,
+  );
+  expect(text).toStartWith("<b>weekly: </b>21%");
+  expect(text).toContain("\n\n<b>weekly reset</b>");
+  expect(text.length).toBeLessThanOrEqual(4096);
+  expect(text).toContain("additional resets omitted");
 });

@@ -1,4 +1,4 @@
-import type { Credit, Snapshot, UsageWindow } from "./model";
+import type { Credit, MonitorState, Snapshot, UsageWindow } from "./model";
 
 export function escapeHtml(text: string): string {
   return text
@@ -52,7 +52,7 @@ export function usageMessage(snapshot: Snapshot | null, now: number): string {
     snapshot.weekly?.resetsAt != null && snapshot.weekly.resetsAt - now < 86_400
       ? "datetime"
       : "date";
-  const usage = `<b>Weekly: </b>${windowText(snapshot.weekly, weeklyStyle)}\n<b>5-hour</b>: ${windowText(snapshot.fiveHour, "time")}`;
+  const usage = `<b>weekly: </b>${windowText(snapshot.weekly, weeklyStyle)}\n<b>5-hour</b>: ${windowText(snapshot.fiveHour, "time")}`;
   const stale = now - snapshot.checkedAt > 360;
   return stale
     ? `${usage}\n\n⚠️ данные устарели; последняя проверка: ${formatDate(snapshot.checkedAt)}`
@@ -85,7 +85,7 @@ export function resetsMessage(
       expiry === null
         ? "no expiry"
         : `${formatRemaining(expiry - now)} (${formatDate(expiry, expiry - now < 86_400 ? "datetime" : "date")})`;
-    const line = `<b>・ ${creditTitle(credit)}</b> – ${detail}`;
+    const line = `<b>weekly reset</b> – ${detail}`;
     if (chunk && chunk.length + line.length + 1 > 3500) {
       chunks.push(chunk);
       chunk = "";
@@ -112,4 +112,27 @@ function formatRemaining(seconds: number): string {
     }
   }
   return "in less than a minute";
+}
+
+export function dashboardMessage(
+  state: MonitorState | null,
+  now: number,
+): string {
+  const usage = usageMessage(state?.snapshot ?? null, now);
+  const resets =
+    state?.creditsCheckedAt == null
+      ? "список resets ещё не получен."
+      : resetsMessage(
+          state.snapshot.credits ?? Object.values(state.knownCredits),
+          state.creditsCheckedAt,
+          now,
+        ).join("\n");
+  const lines = `${usage}\n\n${resets}`.split("\n");
+  let result = "";
+  for (const line of lines) {
+    if (result.length + line.length > 3800)
+      return `${result}\n… additional resets omitted (Telegram message limit).`;
+    result += `${result ? "\n" : ""}${line}`;
+  }
+  return result;
 }

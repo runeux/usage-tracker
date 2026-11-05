@@ -13,12 +13,14 @@ function setup() {
   const store = new Store(":memory:");
   const auth = new CodexAuth("/unused");
   const login = new DeviceLogin("/unused");
-  const { bot } = createTelegram(
+  store.set("dashboard_keyboard_ready", "1");
+  const { bot, channel } = createTelegram(
     "123456:fake-test-token",
     store,
     login,
     auth,
     () => {},
+    async () => {},
   );
   bot.botInfo = {
     id: 123456,
@@ -36,9 +38,12 @@ function setup() {
     supports_join_request_queries: false,
   };
   const messages: string[] = [];
+  const keyboards: unknown[] = [];
   bot.api.config.use(async (_previous, method, payload) => {
     if (method === "sendMessage" && "text" in payload)
       messages.push(payload.text);
+    if (method === "sendMessage" && "reply_markup" in payload)
+      keyboards.push(payload.reply_markup);
     throw new CapturedRequest();
   });
   const update = async (text: string, from = OWNER_ID, group = false) => {
@@ -74,7 +79,7 @@ function setup() {
         throw error;
     }
   };
-  return { store, messages, update };
+  return { store, messages, keyboards, update, channel };
 }
 
 describe("telegram handlers", () => {
@@ -85,8 +90,8 @@ describe("telegram handlers", () => {
     expect(messages).toEqual([]);
     store.close();
   });
-  test("usage and my resets buttons read the saved snapshot", async () => {
-    const { store, messages, update } = setup();
+  test("usage button sends one combined dashboard and old resets button is inactive", async () => {
+    const { store, messages, keyboards, update, channel } = setup();
     const now = Date.now() / 1000;
     const state = reconcile(null, {
       accountId: "test",
@@ -106,9 +111,20 @@ describe("telegram handlers", () => {
     store.commit(state, [], []);
     await update("usage");
     await update("my resets");
-    expect(messages[0]).toBe("<b>Weekly: </b>68%\n<b>5-hour</b>: 100%");
-    expect(messages[1]).toContain("<b>・ Full reset</b> – in 16 minutes (");
-    expect(messages[1]).not.toContain("UTC+5");
+    expect(messages[0]).toStartWith(
+      "<b>weekly: </b>68%\n<b>5-hour</b>: 100%\n\n<b>weekly reset</b> – in 16 minutes (",
+    );
+    expect(messages).toHaveLength(1);
+    expect(keyboards).toEqual([]);
+    await expect(channel.send("notification")).rejects.toBeInstanceOf(
+      CapturedRequest,
+    );
+    expect(keyboards[0]).toEqual({
+      keyboard: [[{ text: "usage" }]],
+      resize_keyboard: true,
+      is_persistent: true,
+    });
+    expect(messages[0]).not.toContain("UTC+5");
     store.close();
   });
 });

@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { z } from "zod";
 
 export const OWNER_ID = 5766296513;
-export const POLL_SECONDS = 300;
+export const POLL_SECONDS = 60;
 
 export function loadConfig() {
   const env = z

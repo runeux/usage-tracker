@@ -193,18 +193,18 @@ describe("reset detection", () => {
       reconcile(baseline(), snapshot({ accountId: "account-2" })),
     ).toThrow("account changed");
   });
-  test("weekly deadline adds an earlier poll; ordinary polling stays at 5 minutes", () => {
-    expect(nextPollAt(baseline({ fiveHour: null }), now, now)).toBe(now + 300);
+  test("weekly deadline adds an earlier poll; ordinary polling stays at 1 minute", () => {
+    expect(nextPollAt(baseline({ fiveHour: null }), now, now)).toBe(now + 60);
     expect(
       nextPollAt(
         baseline({
-          weekly: { remaining: 100, resetsAt: now + 100 },
+          weekly: { remaining: 100, resetsAt: now + 30 },
           fiveHour: null,
         }),
         now,
         now,
       ),
-    ).toBe(now + 105);
+    ).toBe(now + 35);
   });
 });
 

@@ -1,3 +1,4 @@
+import { POLL_SECONDS } from "./config";
 import { creditLabel, formatDate } from "./messages";
 import type { Event, MonitorState, Snapshot } from "./model";
 import { EXPIRY_REMINDERS, expiryReminder } from "./reminders";
@@ -165,7 +166,7 @@ export function nextPollAt(
   lastPollAt: number,
   now: number,
 ): number {
-  let next = lastPollAt + 300;
+  let next = lastPollAt + POLL_SECONDS;
   if (!state) return next;
   if (state.instantCandidate) next = Math.min(next, now + 30);
   for (const window of [state.snapshot.weekly, state.snapshot.fiveHour]) {

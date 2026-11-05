@@ -4,12 +4,12 @@ A personal Telegram bot that watches Codex allowance, banked resets, and reset a
 
 ## Behavior
 
-- Polls account usage, reset credits, and announcements every five minutes.
+- Polls account usage, reset credits, and announcements every minute.
 - Adds a poll five seconds after a known reset deadline. A successful request normally delivers the weekly notification within a minute; network outages can delay confirmation.
 - Notifies about a scheduled **5h reset only when the last observed remaining allowance was strictly below 30%**. Exactly 30% does not qualify.
 - Always notifies when a previously observed **weekly deadline** is crossed, including a completely unused window. The notification is `<b>reset</b>: weekly`; scheduled and confirmed instant resets use the same wording. Five-hour notifications use `<b>reset</b>: 5-hour`.
 - Detects an **instant reset** when the weekly deadline changes by more than two minutes before its scheduled end and weekly allowance becomes 100%. Confirms the new deadline with another read after 30 seconds. An observed banked redemption, missing inventory, or unavailable credit data suppresses this inference. This identifies an account-level signature; it cannot prove which other accounts received a global reset.
-- Tracks newly available banked credits by their backend ID and notifies with `<b>new banked reset</b>: weekly – Nov 5, 2:39 PM`, using the credit expiry date and local time. Banked redemption uses `<b>reset</b>: weekly`. Expiry dates remain available through `my resets` in **UTC+5**. Also reports explicit redemption, expiry, and expiry reminders at three days, one day, and two hours before expiration. Dates use UTC+5 throughout, without a repeated timezone suffix. Only the most urgent crossed reminder is sent after an outage; already-passed thresholds are not replayed on deployment.
+- Tracks newly available banked credits by their backend ID and notifies with `<b>new banked reset</b>: weekly – Nov 5, 2:39 PM`, using the credit expiry date and local time. Banked redemption uses `<b>reset</b>: weekly`. Expiry dates remain available through the `usage` dashboard in **UTC+5**. Also reports explicit redemption, expiry, and expiry reminders at three days, one day, and two hours before expiration. Dates use UTC+5 throughout, without a repeated timezone suffix. Only the most urgent crossed reminder is sent after an outage; already-passed thresholds are not replayed on deployment.
 - Does not infer redemption merely because a credit disappears from a response. If a known expiry is crossed and the credit disappears, reports the deadline ending without claiming whether it was used first. Partial or invalid responses do not erase saved inventory.
 - Separately forwards new reset announcements from [tokenusage.dev](https://tokenusage.dev/resets), with source attribution and the original publication link. An announcement is never presented as proof of an account reset.
 - Reads other account announcements through the official Codex app-server workspace-message interface, when enabled for the account. This and tokenusage.dev are bounded sources, not a complete archive of the Codex team's social posts.
@@ -21,23 +21,25 @@ Percentages always mean **remaining allowance**. Usage consumed between two poll
 
 The owner is hardcoded in `src/config.ts`. Only that user's private chat is accepted. Group chats and other users are ignored.
 
-| Button or command      | Result                                                  |
-| ---------------------- | ------------------------------------------------------- |
-| `usage`, `/usage`      | Latest saved remaining weekly and 5h allowance          |
-| `my resets`, `/resets` | Available banked resets, earliest expiry first          |
-| `/start`               | Persistent keyboard and usage                           |
-| `/status`              | Last successful checks and notification delivery state  |
-| `/login`               | Start a new official Codex device-code login on the VPS |
+| Button or command           | Result                                                  |
+| --------------------------- | ------------------------------------------------------- |
+| `usage`, `/usage`, `/start` | Fresh combined usage and banked-reset dashboard         |
+| `/status`                   | Last successful checks and notification delivery state  |
+| `/login`                    | Start a new official Codex device-code login on the VPS |
+
+The keyboard has one `usage` button. Pressing it reads current Codex data, deletes the previous dashboard, sends one new combined message, and persists its ID. Minute updates edit only that ID; restarts resume it. Unchanged text is not edited. A manually deleted dashboard is cleared and is recreated only on another button press. Failed deletion prevents creating a second dashboard. Telegram restricts message deletion to messages younger than 48 hours; an older dashboard may need manual deletion before replacement.
+
+The persistent keyboard is configured in a temporary message that is immediately deleted. The dashboard itself has no reply keyboard markup, because Telegram rejects edits to messages carrying that markup. Long reset lists are bounded by Telegram's single-message limit, with an explicit omission notice.
 
 Example:
 
 ```text
-Weekly: 21% – Nov 5, 11:05 PM
+weekly: 21% – Nov 5, 11:05 PM
 5-hour: 100% – 7:16 PM
 
-・ Full reset – in 3 hours (Nov 5, 11:47 PM)
-・ Full reset – in 2 days (Nov 7)
-・ Full reset – in 3 weeks (Nov 26)
+weekly reset – in 3 hours (Nov 5, 11:47 PM)
+weekly reset – in 2 days (Nov 7)
+weekly reset – in 3 weeks (Nov 26)
 ```
 
 Weekly deadlines and banked expiry dates include a time only when less than 24 hours remain. At exactly 24 hours they show only the date. The 5-hour deadline always shows only the time. Relative banked expiry uses whole weeks, days, hours, or minutes, with singular/plural forms. Old cached data is labelled when a successful read is more than six minutes old. Missing initial data is explicitly reported.

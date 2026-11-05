@@ -58,7 +58,7 @@ describe("banked expiry reminders", () => {
   test("the scheduler adds a poll at each reminder threshold", () => {
     for (const reminder of EXPIRY_REMINDERS) {
       const due = expiresAt - reminder.seconds;
-      const now = due - 120;
+      const now = due - 30;
       const state = reconcile(null, snapshot(now)).state;
       expect(nextPollAt(state, now, now)).toBe(due + 5);
     }
