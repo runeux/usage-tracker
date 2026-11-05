@@ -221,3 +221,45 @@ test("a credit removed at its expiry still reports the known deadline without cl
   expect(event?.text).toContain("API не подтвердил");
   expect(result.events.some((item) => item.kind === "banked-used")).toBe(false);
 });
+
+test("banked grants use the concise new reset notification", () => {
+  const result = reconcile(
+    baseline(),
+    snapshot({ credits: [credit, { ...credit, id: "new" }] }),
+  );
+  expect(result.events.find((event) => event.kind === "banked-new")?.text).toBe(
+    "<b>new banked reset</b>: weekly",
+  );
+});
+
+test("scheduled resets use the requested weekly and 5-hour labels", () => {
+  const result = reconcile(baseline(), snapshot({ checkedAt: now + 1005 }));
+  expect(
+    result.events.find((event) => event.kind === "scheduled-weekly")?.text,
+  ).toBe("<b>reset</b>: weekly");
+  expect(
+    result.events.find((event) => event.kind === "scheduled-fiveHour")?.text,
+  ).toBe("<b>reset</b>: 5-hour");
+});
+
+test("instant and redeemed banked resets use the same wording as scheduled resets", () => {
+  const updated = snapshot({
+    checkedAt: now + 20,
+    weekly: { remaining: 100, resetsAt: now + 604_820 },
+  });
+  const candidate = reconcile(baseline(), updated);
+  const confirmed = reconcile(candidate.state, {
+    ...updated,
+    checkedAt: now + 50,
+  });
+  const redeemed = reconcile(
+    baseline(),
+    snapshot({ credits: [{ ...credit, status: "redeemed" }] }),
+  );
+  expect(confirmed.events.find((event) => event.kind === "instant")?.text).toBe(
+    "<b>reset</b>: weekly",
+  );
+  expect(
+    redeemed.events.find((event) => event.kind === "banked-used")?.text,
+  ).toBe("<b>reset</b>: weekly");
+});

@@ -1,4 +1,4 @@
-import { creditLabel, formatDate } from "./messages";
+import { creditLabel } from "./messages";
 import type { Event, MonitorState, Snapshot } from "./model";
 import { EXPIRY_REMINDERS, expiryReminder } from "./reminders";
 
@@ -31,7 +31,7 @@ export function reconcile(
       events.push({
         id: `banked:new:${credit.id}`,
         kind: "banked-new",
-        text: `🎁 <b>новый banked reset</b>\n${creditLabel(credit)}`,
+        text: "<b>new banked reset</b>: weekly",
       });
     }
     if (isUsed(credit.status) && old && !isUsed(old.status)) {
@@ -39,7 +39,7 @@ export function reconcile(
       events.push({
         id: `banked:used:${credit.id}`,
         kind: "banked-used",
-        text: `✅ <b>banked reset использован</b>\n${creditLabel(credit)}`,
+        text: "<b>reset</b>: weekly",
       });
     }
     const expired =
@@ -85,7 +85,7 @@ export function reconcile(
   if (previous) {
     for (const [key, label] of [
       ["weekly", "weekly"],
-      ["fiveHour", "5h"],
+      ["fiveHour", "5-hour"],
     ] as const) {
       const old = previous.snapshot[key];
       const deadline = old?.resetsAt;
@@ -100,7 +100,7 @@ export function reconcile(
       events.push({
         id: `scheduled:${key}:${deadline}`,
         kind: `scheduled-${key}`,
-        text: `🔄 <b>плановый ${label} reset</b>\nокно завершилось ${formatDate(deadline)}.${key === "fiveHour" ? `\nперед сбросом оставалось ${Math.round(old.remaining)}%.` : ""}`,
+        text: `<b>reset</b>: ${label}`,
       });
     }
 
@@ -126,7 +126,7 @@ export function reconcile(
         events.push({
           id: `instant:${weekly.resetsAt}`,
           kind: "instant",
-          text: `⚡ <b>внеплановый instant reset</b>\nпри первом наблюдении weekly: 100%; рамки weekly окна изменились до планового сброса.\nновый weekly reset: ${formatDate(weekly.resetsAt)}.\nпризнаков использования banked reset нет.`,
+          text: "<b>reset</b>: weekly",
         });
         instantCandidate = null;
       } else {
