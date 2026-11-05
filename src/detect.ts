@@ -1,4 +1,4 @@
-import { creditLabel } from "./messages";
+import { creditLabel, formatDate } from "./messages";
 import type { Event, MonitorState, Snapshot } from "./model";
 import { EXPIRY_REMINDERS, expiryReminder } from "./reminders";
 
@@ -31,7 +31,7 @@ export function reconcile(
       events.push({
         id: `banked:new:${credit.id}`,
         kind: "banked-new",
-        text: "<b>new banked reset</b>: weekly",
+        text: `<b>new banked reset</b>: weekly – ${credit.expiresAt === null ? "no expiry" : formatDate(credit.expiresAt)}`,
       });
     }
     if (isUsed(credit.status) && old && !isUsed(old.status)) {

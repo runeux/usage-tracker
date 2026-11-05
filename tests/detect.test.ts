@@ -222,13 +222,18 @@ test("a credit removed at its expiry still reports the known deadline without cl
   expect(result.events.some((item) => item.kind === "banked-used")).toBe(false);
 });
 
-test("banked grants use the concise new reset notification", () => {
+test("banked grants include the expiry date and local time", () => {
+  const checkedAt = Date.parse("2026-11-04T09:39:00Z") / 1000;
+  const expiresAt = Date.parse("2026-11-05T09:39:00Z") / 1000;
   const result = reconcile(
-    baseline(),
-    snapshot({ credits: [credit, { ...credit, id: "new" }] }),
+    baseline({ checkedAt }),
+    snapshot({
+      checkedAt: checkedAt + 20,
+      credits: [credit, { ...credit, id: "new", expiresAt }],
+    }),
   );
   expect(result.events.find((event) => event.kind === "banked-new")?.text).toBe(
-    "<b>new banked reset</b>: weekly",
+    "<b>new banked reset</b>: weekly – Nov 5, 2:39 PM",
   );
 });
 
