@@ -66,6 +66,7 @@ async function checkUsage(): Promise<void> {
       }),
     );
   } catch (error) {
+    if (stop) return;
     const now = Date.now() / 1000;
     if (error instanceof CodexAuthError) {
       store.health("авторизация Codex", false, channelIds, now, {
