@@ -32,14 +32,15 @@ The owner is hardcoded in `src/config.ts`. Only that user's private chat is acce
 Example:
 
 ```text
-Weekly: 68% (until Dec 2, 2:47 AM)
-5h: 100% (until Nov 4, 3:41 AM)
+Weekly: 21% – Nov 5, 11:05 PM
+5-hour: 100% – 7:16 PM
 
-Full reset — Dec 2, 2:47 AM
-Full reset will expire in 2h (Dec 2, 2:47 AM)
+・ Full reset – in 3 hours (Nov 5, 11:47 PM)
+・ Full reset – in 2 days (Nov 7)
+・ Full reset – in 3 weeks (Nov 26)
 ```
 
-Old cached data is labelled when a successful read is more than six minutes old. Missing initial data is explicitly reported.
+Weekly deadlines and banked expiry dates include a time only when less than 24 hours remain. At exactly 24 hours they show only the date. The 5-hour deadline always shows only the time. Relative banked expiry uses whole weeks, days, hours, or minutes, with singular/plural forms. Old cached data is labelled when a successful read is more than six minutes old. Missing initial data is explicitly reported.
 
 ## Sources and authentication
 
@@ -47,7 +48,7 @@ The read-only `/wham/usage` and `/wham/rate-limit-reset-credits` contracts and n
 
 The [official Codex CLI](https://github.com/openai/codex) owns OAuth login, token rotation, and credential persistence. The bot communicates with its local app-server over stdio. It requests a proactive refresh every 45 minutes and retries once with refreshed credentials after a usage API 401. It does not implement an independent OAuth refresh flow and never consumes a reset credit or starts a model turn.
 
-Use a **separate login** for the bot, rather than sharing a refresh token with another active client. [Official headless-login documentation](https://learn.chatgpt.com/docs/auth?surface=cli) describes device authorization and credential storage. If device authorization is disabled, enable it in ChatGPT Security Settings before logging in. An account logout or revoked session may require `/login`; repeated failures generate one outage alert and one recovery alert.
+Use a **separate login** for the bot, rather than sharing a refresh token with another active client. [Official headless-login documentation](https://learn.chatgpt.com/docs/auth?surface=cli) describes device authorization and credential storage. If device authorization is disabled, enable it in ChatGPT Security Settings before logging in. An account logout or revoked session may require `/login`. A failed CLI credential check/refresh or a backend 401 that persists after refreshing creates an immediate authorization alert with `/login` instructions. This includes authorization failures while reading banked credits. The incident and its delivery are persisted, so repeated failures and restarts do not duplicate the alert. A successful account read sends one recovery notification. Other source failures retain the three-check outage threshold.
 
 The authenticated allowance endpoints are undocumented backend APIs and may change. Runtime validation rejects malformed data rather than interpreting it as a reset. The public announcement contract is documented at [tokenusage.dev/developers](https://tokenusage.dev/developers).
 

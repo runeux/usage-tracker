@@ -163,7 +163,13 @@ export class Store {
     })();
   }
 
-  health(source: string, ok: boolean, channels: string[], now: number): void {
+  health(
+    source: string,
+    ok: boolean,
+    channels: string[],
+    now: number,
+    options: { afterFailures?: number; failureText?: string } = {},
+  ): void {
     const key = `health:${source}`;
     const raw = this.get(key);
     // this value is generated exclusively by this method, rather than read from an upstream api.
@@ -190,14 +196,16 @@ export class Store {
         failures: (previous?.failures ?? 0) + 1,
         alerted: previous?.alerted ?? false,
       };
-      if (health.failures >= 3 && !health.alerted) {
+      if (health.failures >= (options.afterFailures ?? 3) && !health.alerted) {
         health.alerted = true;
         this.enqueue(
           [
             {
               id: `health:failed:${source}:${health.since}`,
               kind: "health",
-              text: `⚠️ источник <b>${escapeHtml(source)}</b> недоступен уже три проверки.\nданные могут быть устаревшими; повторные проверки продолжаются.\nесли требуется вход: <code>/login</code>.`,
+              text:
+                options.failureText ??
+                `⚠️ источник <b>${escapeHtml(source)}</b> недоступен уже три проверки.\nданные могут быть устаревшими; повторные проверки продолжаются.\nесли требуется вход: <code>/login</code>.`,
             },
           ],
           channels,

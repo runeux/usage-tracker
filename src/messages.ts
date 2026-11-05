@@ -7,7 +7,10 @@ export function escapeHtml(text: string): string {
     .replaceAll(">", "&gt;");
 }
 
-export function formatDate(seconds: number): string {
+export function formatDate(
+  seconds: number,
+  style: "date" | "time" | "datetime" = "datetime",
+): string {
   const date = new Date(seconds * 1000);
   const day = new Intl.DateTimeFormat("en-US", {
     timeZone: "Asia/Yekaterinburg",
@@ -20,6 +23,8 @@ export function formatDate(seconds: number): string {
     minute: "2-digit",
     hour12: true,
   }).format(date);
+  if (style === "date") return day;
+  if (style === "time") return time;
   return `${day}, ${time}`;
 }
 
@@ -35,13 +40,19 @@ export function usageMessage(snapshot: Snapshot | null, now: number): string {
   if (!snapshot)
     return "данные ещё не получены. бот повторит проверку автоматически.";
 
-  const windowText = (window: UsageWindow | null): string => {
+  const windowText = (
+    window: UsageWindow | null,
+    style: "date" | "time" | "datetime",
+  ): string => {
     if (!window) return "нет данных";
-    const until =
-      window.resetsAt === null ? "" : ` (until ${formatDate(window.resetsAt)})`;
-    return `${Math.round(window.remaining)}%${until}`;
+    if (window.resetsAt === null) return `${Math.round(window.remaining)}%`;
+    return `${Math.round(window.remaining)}% – ${formatDate(window.resetsAt, style)}`;
   };
-  const usage = `<b>Weekly</b>: ${windowText(snapshot.weekly)}\n<b>5h</b>: ${windowText(snapshot.fiveHour)}`;
+  const weeklyStyle =
+    snapshot.weekly?.resetsAt != null && snapshot.weekly.resetsAt - now < 86_400
+      ? "datetime"
+      : "date";
+  const usage = `<b>Weekly: </b>${windowText(snapshot.weekly, weeklyStyle)}\n<b>5-hour</b>: ${windowText(snapshot.fiveHour, "time")}`;
   const stale = now - snapshot.checkedAt > 360;
   return stale
     ? `${usage}\n\n⚠️ данные устарели; последняя проверка: ${formatDate(snapshot.checkedAt)}`
@@ -67,15 +78,38 @@ export function resetsMessage(
   if (!available.length) return [`доступных banked resets нет.${suffix}`];
 
   const chunks: string[] = [];
-  let chunk = "<b>my resets</b>";
+  let chunk = "";
   for (const credit of available) {
-    const line = `\n${creditLabel(credit)}`;
-    if (chunk.length + line.length > 3500) {
+    const expiry = credit.expiresAt;
+    const detail =
+      expiry === null
+        ? "no expiry"
+        : `${formatRemaining(expiry - now)} (${formatDate(expiry, expiry - now < 86_400 ? "datetime" : "date")})`;
+    const line = `<b>・ ${creditTitle(credit)}</b> – ${detail}`;
+    if (chunk && chunk.length + line.length + 1 > 3500) {
       chunks.push(chunk);
-      chunk = "<b>my resets</b>";
+      chunk = "";
     }
-    chunk += line;
+    chunk += `${chunk ? "\n" : ""}${line}`;
   }
   chunks.push(chunk + suffix);
   return chunks;
+}
+
+function formatRemaining(seconds: number): string {
+  const units = [
+    { seconds: 7 * 86_400, unit: "week" },
+    { seconds: 86_400, unit: "day" },
+    { seconds: 3600, unit: "hour" },
+    { seconds: 60, unit: "minute" },
+  ] as const;
+  for (const item of units) {
+    if (seconds >= item.seconds) {
+      return new Intl.RelativeTimeFormat("en-US", { numeric: "always" }).format(
+        Math.floor(seconds / item.seconds),
+        item.unit,
+      );
+    }
+  }
+  return "in less than a minute";
 }

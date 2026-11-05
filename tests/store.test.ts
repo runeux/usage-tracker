@@ -166,3 +166,35 @@ test("workspace announcements are baselined and deduplicated by backend id", () 
   expect(pending[0]?.text).toContain("&lt;hello&gt;");
   store.close();
 });
+
+test("auth incidents alert immediately and remain deduplicated across restarts", async () => {
+  const path = databasePath();
+  const first = new Store(path);
+  const options = {
+    afterFailures: 1,
+    failureText: "authorization failed; use /login",
+  };
+  const sent: string[] = [];
+  const channel: Channel = {
+    id: "telegram",
+    async send(text) {
+      sent.push(text);
+    },
+  };
+  first.health("auth", false, [channel.id], 100, options);
+  expect(first.pending(100)[0]?.text).toBe(options.failureText);
+  await deliverPending(first, [channel], 100);
+  first.close();
+  const second = new Store(path);
+  second.health("auth", false, [channel.id], 200, options);
+  await deliverPending(second, [channel], 200);
+  expect(sent).toEqual([options.failureText]);
+  second.health("auth", true, [channel.id], 300);
+  second.health("auth", true, [channel.id], 301);
+  await deliverPending(second, [channel], 302);
+  expect(sent).toHaveLength(2);
+  expect(sent[1]).toContain("снова доступен");
+  second.health("auth", false, [channel.id], 400, options);
+  expect(second.pending(400)).toHaveLength(1);
+  second.close();
+});

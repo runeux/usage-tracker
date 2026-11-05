@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { CodexAuth } from "./auth";
+import { type CodexAuth, CodexAuthError } from "./auth";
 import { type Announcement, announcementSchema, type Snapshot } from "./model";
 import { normalizeCredits, normalizeUsage } from "./normalize";
 
@@ -13,7 +13,7 @@ export class SourceError extends Error {
 }
 
 export class CodexProvider {
-  constructor(private readonly auth: CodexAuth) {}
+  constructor(private readonly auth: Pick<CodexAuth, "credentials">) {}
 
   private async request(
     path: string,
@@ -53,14 +53,21 @@ export class CodexProvider {
         if (!(error instanceof SourceError) || error.status !== 401)
           throw error;
         credentials = await this.auth.credentials(true);
-        return this.request(path, credentials);
+        try {
+          return await this.request(path, credentials);
+        } catch (retryError) {
+          if (retryError instanceof SourceError && retryError.status === 401)
+            throw new CodexAuthError(retryError);
+          throw retryError;
+        }
       }
     };
     const usage = normalizeUsage(await read("usage"));
     let credits: Snapshot["credits"] = null;
     try {
       credits = normalizeCredits(await read("rate-limit-reset-credits"));
-    } catch {
+    } catch (error) {
+      if (error instanceof CodexAuthError) throw error;
       /* preserve the last known inventory when the independent credit read fails. */
     }
     return {

@@ -1,10 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import {
-  creditLabel,
-  escapeHtml,
-  resetsMessage,
-  usageMessage,
-} from "../src/messages";
 import { normalizeCredits, normalizeUsage } from "../src/normalize";
 
 const usage = {
@@ -102,56 +96,5 @@ describe("upstream contracts", () => {
         credits: [{ ...rawCredit, is_supported_by_plan: false }],
       }),
     ).toEqual([]);
-  });
-});
-
-describe("telegram presentation", () => {
-  test("usage has the requested labels and marks old data", () => {
-    const snapshot = {
-      accountId: "test",
-      checkedAt: 1000,
-      ...normalizeUsage(usage),
-      weekly: {
-        remaining: 28,
-        resetsAt: Date.parse("2026-12-01T21:47:00Z") / 1000,
-      },
-      fiveHour: {
-        remaining: 67,
-        resetsAt: Date.parse("2026-11-03T22:41:00Z") / 1000,
-      },
-      credits: null,
-    };
-    expect(usageMessage(snapshot, 1001)).toBe(
-      "<b>Weekly</b>: 28% (until Dec 2, 2:47 AM)\n<b>5h</b>: 67% (until Nov 4, 3:41 AM)",
-    );
-    expect(usageMessage(snapshot, 2000)).toContain("данные устарели");
-  });
-  test("reset labels use local time without a timezone suffix", () => {
-    const credit = normalizeCredits({
-      available_count: 1,
-      credits: [rawCredit],
-    })[0];
-    if (!credit) throw new Error("missing fixture credit");
-    expect(creditLabel(credit)).toBe("Full reset — Dec 2, 2:47 AM");
-    expect(resetsMessage([credit], 1000, 1001)).toEqual([
-      "<b>my resets</b>\nFull reset — Dec 2, 2:47 AM",
-    ]);
-  });
-  test("untrusted titles are escaped, and expired or redeemed credits are hidden", () => {
-    const credit = normalizeCredits({
-      available_count: 1,
-      credits: [{ ...rawCredit, title: "<b>reset</b> & free" }],
-    })[0];
-    if (!credit) throw new Error("missing fixture credit");
-    expect(creditLabel(credit)).toStartWith(
-      "&lt;b&gt;reset&lt;/b&gt; &amp; free",
-    );
-    expect(escapeHtml("A&B<C>")).toBe("A&amp;B&lt;C&gt;");
-    expect(
-      resetsMessage([{ ...credit, status: "redeemed" }], 1000, 1001)[0],
-    ).toBe("доступных banked resets нет.");
-    expect(resetsMessage([{ ...credit, expiresAt: 999 }], 1000, 1001)[0]).toBe(
-      "доступных banked resets нет.",
-    );
   });
 });

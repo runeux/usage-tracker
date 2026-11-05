@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { CodexAuth } from "./auth";
+import { CodexAuth, CodexAuthError } from "./auth";
 import { loadConfig, POLL_SECONDS } from "./config";
 import { deliverPending } from "./delivery";
 import { nextPollAt, reconcile } from "./detect";
@@ -39,6 +39,7 @@ async function pollUsage(): Promise<void> {
     const { state, events } = reconcile(store.load(), snapshot);
     store.commit(state, events, channelIds);
     store.health("codex usage / OAuth", true, channelIds, snapshot.checkedAt);
+    store.health("авторизация Codex", true, channelIds, snapshot.checkedAt);
     store.health(
       "banked resets",
       !creditsError,
@@ -54,9 +55,17 @@ async function pollUsage(): Promise<void> {
         nextCheckAt: nextUsage,
       }),
     );
-  } catch {
+  } catch (error) {
     const now = Date.now() / 1000;
-    store.health("codex usage / OAuth", false, channelIds, now);
+    if (error instanceof CodexAuthError) {
+      store.health("авторизация Codex", false, channelIds, now, {
+        afterFailures: 1,
+        failureText:
+          "⚠️ <b>проблема с авторизацией Codex</b>\nне удалось проверить или обновить сессию. данные usage и resets могут быть устаревшими.\nпродолжаю попытки восстановления; для повторного входа отправь <code>/login</code>.",
+      });
+    } else {
+      store.health("codex usage / OAuth", false, channelIds, now);
+    }
     nextUsage = now + 60;
     console.error("codex usage check failed; retrying in 60 seconds");
   }

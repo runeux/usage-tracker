@@ -24,6 +24,12 @@ type Pending = {
   timer: ReturnType<typeof setTimeout>;
 };
 
+export class CodexAuthError extends Error {
+  constructor(cause?: unknown) {
+    super("codex authorization could not be verified or refreshed", { cause });
+  }
+}
+
 export class CodexAuth {
   private child: ChildProcessWithoutNullStreams | null = null;
   private pending = new Map<number, Pending>();
@@ -111,22 +117,26 @@ export class CodexAuth {
   async credentials(
     forceRefresh = false,
   ): Promise<{ token: string; accountId: string }> {
-    await this.start();
-    const refresh = forceRefresh || Date.now() >= this.refreshAfter;
-    const result = authResult.parse(
-      await this.rpc("getAuthStatus", {
-        includeToken: true,
-        refreshToken: refresh,
-      }),
-    );
-    if (result.authMethod !== "chatgpt" || !result.authToken) {
-      throw new Error("codex login required");
+    try {
+      await this.start();
+      const refresh = forceRefresh || Date.now() >= this.refreshAfter;
+      const result = authResult.parse(
+        await this.rpc("getAuthStatus", {
+          includeToken: true,
+          refreshToken: refresh,
+        }),
+      );
+      if (result.authMethod !== "chatgpt" || !result.authToken) {
+        throw new Error("codex login required");
+      }
+      if (refresh) this.refreshAfter = Date.now() + 45 * 60_000;
+      const file = authFile.parse(
+        await Bun.file(join(this.home, "auth.json")).json(),
+      );
+      return { token: result.authToken, accountId: file.tokens.account_id };
+    } catch (error) {
+      throw new CodexAuthError(error);
     }
-    if (refresh) this.refreshAfter = Date.now() + 45 * 60_000;
-    const file = authFile.parse(
-      await Bun.file(join(this.home, "auth.json")).json(),
-    );
-    return { token: result.authToken, accountId: file.tokens.account_id };
   }
 
   async workspaceMessages() {
