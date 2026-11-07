@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
-  creditLabel,
   dashboardMessage,
   escapeHtml,
+  formatDate,
   resetsMessage,
   usageMessage,
 } from "../src/messages";
@@ -35,7 +35,7 @@ function snapshot(): Snapshot {
 describe("usage presentation", () => {
   test("weekly within 24h includes the time; 5-hour always shows only time", () => {
     expect(usageMessage(snapshot(), now)).toBe(
-      "<b>weekly: </b>21% – Nov 5, 11:05 PM\n<b>5-hour</b>: 100% – 7:16 PM",
+      "<b>weekly: </b>21% – nov 5, 11:05 pm\n<b>5-hour</b>: 100% – 7:16 pm",
     );
   });
   test("weekly at least 24h away shows only its date", () => {
@@ -43,13 +43,13 @@ describe("usage presentation", () => {
       const data = snapshot();
       data.weekly = { remaining: 21, resetsAt: now + seconds };
       expect(usageMessage(data, now).split("\n")[0]).toBe(
-        `<b>weekly: </b>21% – Nov ${seconds === 86_400 ? 6 : 7}`,
+        `<b>weekly: </b>21% – nov ${seconds === 86_400 ? 6 : 7}`,
       );
     }
     const data = snapshot();
     data.weekly = { remaining: 21, resetsAt: now + 86_399 };
     expect(usageMessage(data, now).split("\n")[0]).toBe(
-      "<b>weekly: </b>21% – Nov 6, 8:46 PM",
+      "<b>weekly: </b>21% – nov 6, 8:46 pm",
     );
   });
   test("missing windows or deadlines do not invent a date or allowance", () => {
@@ -57,12 +57,12 @@ describe("usage presentation", () => {
     data.weekly = null;
     data.fiveHour = { remaining: 100, resetsAt: null };
     expect(usageMessage(data, now)).toBe(
-      "<b>weekly: </b>нет данных\n<b>5-hour</b>: 100%",
+      "<b>weekly: </b>no data\n<b>5-hour</b>: 100%",
     );
-    expect(usageMessage(null, now)).toContain("ещё не получены");
+    expect(usageMessage(null, now)).toContain("waiting for usage data");
   });
   test("old data is visibly marked", () => {
-    expect(usageMessage(snapshot(), now + 361)).toContain("данные устарели");
+    expect(usageMessage(snapshot(), now + 361)).toContain("stale usage");
   });
 });
 
@@ -74,16 +74,16 @@ describe("reset presentation", () => {
       credit,
     ];
     expect(resetsMessage(credits, now, now)).toEqual([
-      "<b>weekly reset</b> – in 3 hours (Nov 5, 11:47 PM)\n<b>weekly reset</b> – in 2 days (Nov 7)\n<b>weekly reset</b> – in 3 weeks (Nov 26)",
+      "<b>weekly reset</b> – in 3 hours (nov 5, 11:47 pm)\n<b>weekly reset</b> – in 2 days (nov 7)\n<b>weekly reset</b> – in 3 weeks (nov 26)",
     ]);
   });
   test("exactly 24 hours uses a date; below 24 hours includes time", () => {
     expect(
       resetsMessage([{ ...credit, expiresAt: now + 86_400 }], now, now)[0],
-    ).toBe("<b>weekly reset</b> – in 1 day (Nov 6)");
+    ).toBe("<b>weekly reset</b> – in 1 day (nov 6)");
     expect(
       resetsMessage([{ ...credit, expiresAt: now + 86_399 }], now, now)[0],
-    ).toBe("<b>weekly reset</b> – in 23 hours (Nov 6, 8:46 PM)");
+    ).toBe("<b>weekly reset</b> – in 23 hours (nov 6, 8:46 pm)");
   });
   test("relative units handle singulars, minutes, and sub-minute expiry", () => {
     for (const [seconds, text] of [
@@ -116,7 +116,7 @@ describe("reset presentation", () => {
         now,
         now,
       ),
-    ).toEqual(["доступных banked resets нет."]);
+    ).toEqual(["no banked resets"]);
   });
   test("long lists split into bounded messages and retain all rows", () => {
     const credits = Array.from({ length: 150 }, (_, i) => ({
@@ -130,9 +130,9 @@ describe("reset presentation", () => {
   });
   test("stale inventory is marked and notification labels retain their full timestamp", () => {
     expect(resetsMessage([credit], now - 361, now)[0]).toContain(
-      "список может быть устаревшим",
+      "stale reset data",
     );
-    expect(creditLabel(credit)).toBe("Full reset — Nov 5, 11:47 PM");
+    expect(formatDate(now + 3 * 3600)).toBe("nov 5, 11:47 pm");
   });
 });
 
@@ -154,5 +154,5 @@ test("combined dashboard is exactly one bounded message", () => {
   expect(text).toStartWith("<b>weekly: </b>21%");
   expect(text).toContain("\n\n<b>weekly reset</b>");
   expect(text.length).toBeLessThanOrEqual(4096);
-  expect(text).toContain("additional resets omitted");
+  expect(text).toContain("more resets omitted");
 });

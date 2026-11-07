@@ -23,28 +23,19 @@ export function formatDate(
     minute: "2-digit",
     hour12: true,
   }).format(date);
-  if (style === "date") return day;
-  if (style === "time") return time;
-  return `${day}, ${time}`;
-}
-
-export function creditTitle(credit: Credit): string {
-  return escapeHtml(credit.title.replace(/\s*\(Weekly \+ 5 hr\)/i, ""));
-}
-
-export function creditLabel(credit: Credit): string {
-  return `${creditTitle(credit)} — ${credit.expiresAt === null ? "no expiry" : formatDate(credit.expiresAt)}`;
+  if (style === "date") return day.toLowerCase();
+  if (style === "time") return time.toLowerCase();
+  return `${day}, ${time}`.toLowerCase();
 }
 
 export function usageMessage(snapshot: Snapshot | null, now: number): string {
-  if (!snapshot)
-    return "данные ещё не получены. бот повторит проверку автоматически.";
+  if (!snapshot) return "waiting for usage data";
 
   const windowText = (
     window: UsageWindow | null,
     style: "date" | "time" | "datetime",
   ): string => {
-    if (!window) return "нет данных";
+    if (!window) return "no data";
     if (window.resetsAt === null) return `${Math.round(window.remaining)}%`;
     return `${Math.round(window.remaining)}% – ${formatDate(window.resetsAt, style)}`;
   };
@@ -55,7 +46,7 @@ export function usageMessage(snapshot: Snapshot | null, now: number): string {
   const usage = `<b>weekly: </b>${windowText(snapshot.weekly, weeklyStyle)}\n<b>5-hour</b>: ${windowText(snapshot.fiveHour, "time")}`;
   const stale = now - snapshot.checkedAt > 360;
   return stale
-    ? `${usage}\n\n⚠️ данные устарели; последняя проверка: ${formatDate(snapshot.checkedAt)}`
+    ? `${usage}\n\nstale usage – checked ${formatDate(snapshot.checkedAt)}`
     : usage;
 }
 
@@ -72,10 +63,8 @@ export function resetsMessage(
     )
     .sort((a, b) => (a.expiresAt ?? Infinity) - (b.expiresAt ?? Infinity));
   const stale = checkedAt === null || now - checkedAt > 360;
-  const suffix = stale
-    ? "\n\n⚠️ список может быть устаревшим; обновление API задерживается."
-    : "";
-  if (!available.length) return [`доступных banked resets нет.${suffix}`];
+  const suffix = stale ? "\n\nstale reset data" : "";
+  if (!available.length) return [`no banked resets${suffix}`];
 
   const chunks: string[] = [];
   let chunk = "";
@@ -121,7 +110,7 @@ export function dashboardMessage(
   const usage = usageMessage(state?.snapshot ?? null, now);
   const resets =
     state?.creditsCheckedAt == null
-      ? "список resets ещё не получен."
+      ? "waiting for reset data"
       : resetsMessage(
           state.snapshot.credits ?? Object.values(state.knownCredits),
           state.creditsCheckedAt,
@@ -131,7 +120,7 @@ export function dashboardMessage(
   let result = "";
   for (const line of lines) {
     if (result.length + line.length > 3800)
-      return `${result}\n… additional resets omitted (Telegram message limit).`;
+      return `${result}\n… more resets omitted`;
     result += `${result ? "\n" : ""}${line}`;
   }
   return result;

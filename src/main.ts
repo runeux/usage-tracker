@@ -35,6 +35,11 @@ const { bot, channel, dashboard } = createTelegram(
 );
 const channels = [channel];
 const channelIds = channels.map((item) => item.id);
+const authHealth = {
+  label: "codex auth",
+  afterFailures: 1,
+  failureText: "<b>codex auth failed</b> – /login",
+};
 
 function pollUsage(): Promise<void> {
   usagePoll ??= checkUsage().finally(() => {
@@ -49,7 +54,13 @@ async function checkUsage(): Promise<void> {
     const { state, events } = reconcile(store.load(), snapshot);
     store.commit(state, events, channelIds);
     store.health("codex usage / OAuth", true, channelIds, snapshot.checkedAt);
-    store.health("авторизация Codex", true, channelIds, snapshot.checkedAt);
+    store.health(
+      "авторизация Codex",
+      true,
+      channelIds,
+      snapshot.checkedAt,
+      authHealth,
+    );
     store.health(
       "banked resets",
       !creditsError,
@@ -69,11 +80,7 @@ async function checkUsage(): Promise<void> {
     if (stop) return;
     const now = Date.now() / 1000;
     if (error instanceof CodexAuthError) {
-      store.health("авторизация Codex", false, channelIds, now, {
-        afterFailures: 1,
-        failureText:
-          "⚠️ <b>проблема с авторизацией Codex</b>\nне удалось проверить или обновить сессию. данные usage и resets могут быть устаревшими.\nпродолжаю попытки восстановления; для повторного входа отправь <code>/login</code>.",
-      });
+      store.health("авторизация Codex", false, channelIds, now, authHealth);
     } else {
       store.health("codex usage / OAuth", false, channelIds, now);
     }
@@ -132,10 +139,10 @@ process.on("SIGINT", () => {
 try {
   await bot.init();
   await bot.api.setMyCommands([
-    { command: "start", description: "открыть меню" },
-    { command: "usage", description: "оставшийся weekly / 5h лимит" },
-    { command: "status", description: "состояние мониторинга" },
-    { command: "login", description: "повторный вход в Codex" },
+    { command: "start", description: "open dashboard" },
+    { command: "usage", description: "usage and resets" },
+    { command: "status", description: "bot status" },
+    { command: "login", description: "reconnect codex" },
   ]);
   const polling = bot.start({
     allowed_updates: ["message"],
@@ -151,7 +158,7 @@ try {
       {
         id: "monitor:installed",
         kind: "startup",
-        text: "✅ <b>usage tracker запущен на vps</b>\nпроверка каждую минуту; у weekly deadline — дополнительная проверка.\nкнопка usage открывает live dashboard. проценты — оставшийся лимит; время — UTC+5.",
+        text: "<b>usage tracker online</b> – press usage",
       },
     ],
     channelIds,

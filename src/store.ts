@@ -119,7 +119,7 @@ export class Store {
             {
               id: `announcement:${post.postId}`,
               kind: "announcement",
-              text: `📣 <b>Codex Team: объявление о reset</b>\nтип по классификации источника: ${post.resetType ?? "не указан"}.\nэто объявление, а не подтверждение сброса твоего аккаунта.\n<a href="${escapeHtml(post.url)}">публикация Codex Team</a> · <a href="https://tokenusage.dev/resets">данные: tokenusage.dev</a>`,
+              text: `<a href="${escapeHtml(post.url)}">codex reset announcement</a>${post.resetType ? ` – ${post.resetType}` : ""} · <a href="https://tokenusage.dev/resets">tokenusage.dev</a>`,
             },
           ],
           channels,
@@ -154,7 +154,7 @@ export class Store {
           events.push({
             id: `workspace:${message.messageId}:${offset}`,
             kind: "workspace-announcement",
-            text: `📣 <b>Codex: сообщение аккаунта</b>\n${escapeHtml(characters.slice(offset, offset + 500).join(""))}`,
+            text: `<b>codex announcement</b>\n${escapeHtml(characters.slice(offset, offset + 500).join(""))}`,
           });
         }
         this.enqueue(events, channels, now);
@@ -168,9 +168,14 @@ export class Store {
     ok: boolean,
     channels: string[],
     now: number,
-    options: { afterFailures?: number; failureText?: string } = {},
+    options: {
+      label?: string;
+      afterFailures?: number;
+      failureText?: string;
+    } = {},
   ): void {
     const key = `health:${source}`;
+    const label = escapeHtml(options.label ?? source.toLowerCase());
     const raw = this.get(key);
     // this value is generated exclusively by this method, rather than read from an upstream api.
     const previous = raw === null ? null : healthSchema.parse(JSON.parse(raw));
@@ -182,7 +187,7 @@ export class Store {
               {
                 id: `health:recovered:${source}:${previous.since}`,
                 kind: "health",
-                text: `✅ источник <b>${escapeHtml(source)}</b> снова доступен.`,
+                text: `<b>${label} recovered</b>`,
               },
             ],
             channels,
@@ -203,9 +208,7 @@ export class Store {
             {
               id: `health:failed:${source}:${health.since}`,
               kind: "health",
-              text:
-                options.failureText ??
-                `⚠️ источник <b>${escapeHtml(source)}</b> недоступен уже три проверки.\nданные могут быть устаревшими; повторные проверки продолжаются.\nесли требуется вход: <code>/login</code>.`,
+              text: options.failureText ?? `<b>${label} unavailable</b>`,
             },
           ],
           channels,

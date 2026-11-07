@@ -10,12 +10,12 @@
 A personal Telegram bot for Codex usage and banked resets. One dashboard, updated every minute. Alerts when limits reset or credits are about to expire.
 
 ```text
-weekly: 21% – Nov 5, 11:05 PM
-5-hour: 100% – 7:16 PM
+weekly: 21% – nov 5, 11:05 pm
+5-hour: 100% – 7:16 pm
 
-weekly reset – in 3 hours (Nov 5, 11:47 PM)
-weekly reset – in 2 days (Nov 7)
-weekly reset – in 3 weeks (Nov 26)
+weekly reset – in 3 hours (nov 5, 11:47 pm)
+weekly reset – in 2 days (nov 7)
+weekly reset – in 3 weeks (nov 26)
 ```
 
 Percentages show **remaining allowance**. Dates use **UTC+5**.

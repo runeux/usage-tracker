@@ -123,9 +123,9 @@ describe("reset detection", () => {
       expiring.events.find((item) => item.kind === "banked-expiring")?.id,
     ).toBe("banked:expiring:2h:credit-1");
     const expired = reconcile(before, snapshot({ checkedAt: now + 172_805 }));
-    expect(expired.events.some((item) => item.kind === "banked-expired")).toBe(
-      true,
-    );
+    expect(
+      expired.events.find((item) => item.kind === "banked-expired")?.text,
+    ).toBe("<b>weekly banked reset</b> has expired");
   });
   test("disappearance before the deadline is not misreported as expiry", () => {
     const result = reconcile(
@@ -218,7 +218,7 @@ test("a credit removed at its expiry still reports the known deadline without cl
     (item) => item.kind === "banked-expiry-deadline",
   );
   expect(event?.id).toBe("banked:expired:credit-1");
-  expect(event?.text).toContain("API не подтвердил");
+  expect(event?.text).toBe("<b>weekly banked reset</b> has expired");
   expect(result.events.some((item) => item.kind === "banked-used")).toBe(false);
 });
 
@@ -233,7 +233,7 @@ test("banked grants include the expiry date and local time", () => {
     }),
   );
   expect(result.events.find((event) => event.kind === "banked-new")?.text).toBe(
-    "<b>new banked reset</b>: weekly – Nov 5, 2:39 PM",
+    "<b>new banked reset</b>: weekly – nov 5, 2:39 pm",
   );
 });
 

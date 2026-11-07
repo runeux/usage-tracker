@@ -1,4 +1,4 @@
-import { creditTitle, formatDate } from "./messages";
+import { formatDate } from "./messages";
 import type { Credit, Event } from "./model";
 
 export const EXPIRY_REMINDERS = [
@@ -29,6 +29,6 @@ export function expiryReminder(
   return {
     id,
     kind: "banked-expiring",
-    text: `${creditTitle(credit)} will expire ${reminder.label} (${formatDate(expiresAt)})`,
+    text: `<b>weekly reset</b> expires ${reminder.label} (${formatDate(expiresAt)})`,
   };
 }

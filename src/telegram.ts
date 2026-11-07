@@ -84,10 +84,9 @@ export function createTelegram(
         error instanceof GrammyError &&
         error.description.includes("message can't be deleted")
       ) {
-        await ctx.reply(
-          "Telegram не разрешил удалить предыдущий dashboard. удали его вручную и снова нажми usage.",
-          { reply_markup: keyboard },
-        );
+        await ctx.reply("delete the old dashboard, then press usage.", {
+          reply_markup: keyboard,
+        });
         return;
       }
       throw error;
@@ -103,7 +102,7 @@ export function createTelegram(
       .map((item) => `${item.status}: ${item.count}`)
       .join(", ");
     await ctx.reply(
-      `проверка usage: ${state ? formatDate(state.snapshot.checkedAt) : "нет данных"}\nпроверка resets: ${state?.creditsCheckedAt ? formatDate(state.creditsCheckedAt) : "нет данных"}\nдоставка: ${deliveries || "очередь пуста"}\nuncertain — доставка не подтверждена; автоматический повтор отключён для защиты от дублей.`,
+      `usage checked: ${state ? formatDate(state.snapshot.checkedAt) : "no data"}\nresets checked: ${state?.creditsCheckedAt ? formatDate(state.creditsCheckedAt) : "no data"}\ndelivery: ${deliveries || "empty"}`,
       { reply_markup: keyboard },
     );
   });
@@ -116,19 +115,15 @@ export function createTelegram(
         }
         await bot.api.sendMessage(
           OWNER_ID,
-          success
-            ? "✅ вход выполнен; обновляю данные Codex."
-            : "вход не завершён. можно повторить /login.",
+          success ? "codex connected" : "login incomplete – /login",
         );
       });
       await ctx.reply(
-        `отдельный вход для бота на vps:\nhttps://auth.openai.com/codex/device\n\nкод: <code>${code}</code>\nдействует до 15 минут.`,
+        `<a href="https://auth.openai.com/codex/device">codex login</a>\ncode: <code>${code}</code> · 15 min`,
         { parse_mode: "HTML" },
       );
     } catch {
-      await ctx.reply(
-        "не удалось начать вход или вход уже ожидает подтверждения. попробуй позже.",
-      );
+      await ctx.reply("login unavailable – try /login again");
     }
   });
   bot.catch(() => console.error("telegram handler failed"));

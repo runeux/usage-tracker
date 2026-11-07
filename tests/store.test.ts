@@ -193,7 +193,7 @@ test("auth incidents alert immediately and remain deduplicated across restarts",
   second.health("auth", true, [channel.id], 301);
   await deliverPending(second, [channel], 302);
   expect(sent).toHaveLength(2);
-  expect(sent[1]).toContain("снова доступен");
+  expect(sent[1]).toContain("recovered");
   second.health("auth", false, [channel.id], 400, options);
   expect(second.pending(400)).toHaveLength(1);
   second.close();

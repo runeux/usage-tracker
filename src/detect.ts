@@ -1,5 +1,5 @@
 import { POLL_SECONDS } from "./config";
-import { creditLabel, formatDate } from "./messages";
+import { formatDate } from "./messages";
 import type { Event, MonitorState, Snapshot } from "./model";
 import { EXPIRY_REMINDERS, expiryReminder } from "./reminders";
 
@@ -52,7 +52,7 @@ export function reconcile(
       events.push({
         id: `banked:expired:${credit.id}`,
         kind: "banked-expired",
-        text: `⌛ <b>banked reset истёк</b>\n${creditLabel(credit)}`,
+        text: "<b>weekly banked reset</b> has expired",
       });
     } else {
       const reminder = expiryReminder(
@@ -77,7 +77,7 @@ export function reconcile(
       events.push({
         id: `banked:expired:${credit.id}`,
         kind: "banked-expiry-deadline",
-        text: `⌛ <b>срок действия banked reset завершился</b>\n${creditLabel(credit)}\nreset больше не отображается в списке; API не подтвердил, был ли он использован перед истечением срока.`,
+        text: "<b>weekly banked reset</b> has expired",
       });
     }
   }

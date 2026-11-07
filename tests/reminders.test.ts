@@ -31,17 +31,17 @@ describe("banked expiry reminders", () => {
       {
         seconds: 3 * 86_400,
         id: "banked:expiring:3d:credit-1",
-        text: "Full reset will expire in 3d (Nov 7, 3:43 AM)",
+        text: "<b>weekly reset</b> expires in 3d (nov 7, 3:43 am)",
       },
       {
         seconds: 86_400,
         id: "banked:expiring:credit-1",
-        text: "Full reset will expire tomorrow (Nov 7, 3:43 AM)",
+        text: "<b>weekly reset</b> expires tomorrow (nov 7, 3:43 am)",
       },
       {
         seconds: 7200,
         id: "banked:expiring:2h:credit-1",
-        text: "Full reset will expire in 2h (Nov 7, 3:43 AM)",
+        text: "<b>weekly reset</b> expires in 2h (nov 7, 3:43 am)",
       },
     ];
     for (const entry of cases) {
