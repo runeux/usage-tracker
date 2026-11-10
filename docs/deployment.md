@@ -37,7 +37,7 @@ DATA_DIR=/var/lib/usage-tracker
 CODEX_HOME=/var/lib/usage-tracker/codex
 ```
 
-Authenticate once as the service user:
+Authenticate once as the service user. Keep the login command running over SSH while you open its verification link and enter the one-time code on your own device. The CLI saves the session under the configured `CODEX_HOME`. If the code expires, run the login command again.
 
 ```sh
 cd /opt/usage-tracker

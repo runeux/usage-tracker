@@ -58,7 +58,9 @@ bun run verify
 bun run start
 ```
 
-`bun run login` starts device-code sign-in through the official codex cli. `bun run doctor` checks access to the undocumented, read-only endpoints for usage and banked resets.
+`bun run login` prints a link and a one-time codex device code. if an agent runs it over ssh, ask it to show you both. open the link on your own device, enter the code, and complete any account verification there. the bot signs in to telegram with `TELEGRAM_BOT_TOKEN`.
+
+`bun run doctor` checks access to the undocumented, read-only endpoints for usage and banked resets.
 
 for systemd and persistent storage, see the [deployment guide](docs/deployment.md).
 
