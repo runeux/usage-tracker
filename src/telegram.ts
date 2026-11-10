@@ -1,4 +1,4 @@
-import { Bot, type Context, GrammyError, Keyboard } from "grammy";
+import { Bot, GrammyError, Keyboard } from "grammy";
 import type { CodexAuth } from "./auth";
 import { OWNER_ID } from "./config";
 import { Dashboard } from "./dashboard";
@@ -59,7 +59,8 @@ export function createTelegram(
       } catch (error) {
         if (
           error instanceof GrammyError &&
-          error.description.includes("message to delete not found")
+          (error.description.includes("message to delete not found") ||
+            error.description.includes("message can't be deleted"))
         )
           return;
         throw error;
@@ -76,22 +77,7 @@ export function createTelegram(
       return;
     await next();
   });
-  const replyUsage = async (ctx: Context) => {
-    try {
-      await dashboard.replace(readNow);
-    } catch (error) {
-      if (
-        error instanceof GrammyError &&
-        error.description.includes("message can't be deleted")
-      ) {
-        await ctx.reply("delete the old dashboard, then press usage.", {
-          reply_markup: keyboard,
-        });
-        return;
-      }
-      throw error;
-    }
-  };
+  const replyUsage = () => dashboard.replace(readNow);
   bot.command("start", replyUsage);
   bot.command("usage", replyUsage);
   bot.hears(/^usage$/i, replyUsage);

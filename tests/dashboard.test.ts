@@ -53,8 +53,8 @@ describe("live dashboard lifecycle", () => {
     expect(reads).toBe(2);
     expect(calls).toEqual([
       { action: "send", id: 1 },
-      { action: "delete", id: 1 },
       { action: "send", id: 2 },
+      { action: "delete", id: 1 },
       { action: "edit", id: 2 },
     ]);
     expect(JSON.parse(store.get("dashboard") ?? "null").id).toBe(2);
@@ -90,27 +90,29 @@ describe("live dashboard lifecycle", () => {
     ]);
     expect(calls).toEqual([
       { action: "send", id: 1 },
-      { action: "delete", id: 1 },
       { action: "send", id: 2 },
-      { action: "delete", id: 2 },
+      { action: "delete", id: 1 },
       { action: "send", id: 3 },
+      { action: "delete", id: 2 },
     ]);
     store.close();
   });
-  test("a failed deletion prevents a duplicate dashboard and can be retried", async () => {
-    const { store, calls, dashboard, transport } = setup();
+  test("a failed send leaves the previous dashboard active", async () => {
+    const { store, calls, dashboard, transport, data } = setup();
     await dashboard.replace(async () => {});
-    const remove = transport.remove;
-    transport.remove = async () => {
-      throw new Error("delete rejected");
+    transport.send = async () => {
+      throw new Error("send rejected");
     };
     await expect(dashboard.replace(async () => {})).rejects.toThrow(
-      "delete rejected",
+      "send rejected",
     );
-    expect(calls).toEqual([{ action: "send", id: 1 }]);
-    transport.remove = remove;
-    await dashboard.replace(async () => {});
-    expect(calls.at(-1)).toEqual({ action: "send", id: 2 });
+    data.snapshot.weekly = { remaining: 96, resetsAt: null };
+    store.commit(data, [], []);
+    await dashboard.refresh();
+    expect(calls).toEqual([
+      { action: "send", id: 1 },
+      { action: "edit", id: 1 },
+    ]);
     store.close();
   });
   test("a manually deleted dashboard is cleared without recreating it", async () => {

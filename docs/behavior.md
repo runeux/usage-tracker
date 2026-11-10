@@ -27,7 +27,7 @@ The owner is hardcoded in `src/config.ts`. Only that user's private chat is acce
 | `/status`                   | Last successful checks and notification delivery state  |
 | `/login`                    | Start a new official Codex device-code login on the VPS |
 
-The keyboard has one `usage` button. Pressing it reads current Codex data, deletes the previous dashboard, sends one new combined message, and persists its ID. Minute updates edit only that ID; restarts resume it. Unchanged text is not edited. A manually deleted dashboard is cleared and is recreated only on another button press. Failed deletion prevents creating a second dashboard. Telegram restricts message deletion to messages younger than 48 hours; an older dashboard may need manual deletion before replacement.
+The keyboard has one `usage` button. Pressing it reads current Codex data, sends a new combined message, and saves its ID. Minute updates edit only that ID; restarts resume it. The bot then tries to delete the previous dashboard. If Telegram refuses to delete it, the old message stays in the chat and stops updating. Unchanged text is not edited. A manually deleted dashboard is cleared and is recreated only on another button press.
 
 The persistent keyboard is configured in a temporary message that is immediately deleted. The dashboard itself has no reply keyboard markup, because Telegram rejects edits to messages carrying that markup. Long reset lists are bounded by Telegram's single-message limit, with an explicit omission notice.
 

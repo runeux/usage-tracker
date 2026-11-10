@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { BotError } from "grammy";
+import { BotError, GrammyError } from "grammy";
 import { CodexAuth } from "../src/auth";
 import { OWNER_ID } from "../src/config";
 import { reconcile } from "../src/detect";
@@ -79,7 +79,7 @@ function setup() {
         throw error;
     }
   };
-  return { store, messages, keyboards, update, channel };
+  return { bot, store, messages, keyboards, update, channel };
 }
 
 describe("telegram handlers", () => {
@@ -88,6 +88,42 @@ describe("telegram handlers", () => {
     await update("/usage", 1);
     await update("/usage", OWNER_ID, true);
     expect(messages).toEqual([]);
+    store.close();
+  });
+  test("usage switches dashboards even when telegram refuses to delete the old one", async () => {
+    const { bot, store, messages, update } = setup();
+    store.set("dashboard", JSON.stringify({ id: 42, text: "old dashboard" }));
+    const deletions: number[] = [];
+    bot.api.deleteMessage = async (chatId, messageId) => {
+      deletions.push(messageId);
+      throw new GrammyError(
+        "telegram rejected deletion",
+        {
+          ok: false,
+          error_code: 400,
+          description: "Bad Request: message can't be deleted",
+        },
+        "deleteMessage",
+        { chat_id: chatId, message_id: messageId },
+      );
+    };
+    bot.api.sendMessage = async (_chatId, text) => {
+      messages.push(text);
+      return {
+        message_id: 43,
+        date: 0,
+        chat: { id: OWNER_ID, type: "private", first_name: "test" },
+        text,
+      };
+    };
+
+    await update("/usage");
+
+    expect(messages).toHaveLength(1);
+    expect(deletions).toEqual([42]);
+    expect(store.get("dashboard")).toBe(
+      JSON.stringify({ id: 43, text: messages[0] }),
+    );
     store.close();
   });
   test("usage button sends one combined dashboard and old resets button is inactive", async () => {

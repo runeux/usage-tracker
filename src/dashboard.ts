@@ -38,13 +38,10 @@ export class Dashboard {
     return this.serialize(async () => {
       await readNow();
       const old = this.saved();
-      if (old) {
-        await this.transport.remove(old.id);
-        this.store.set("dashboard", "null");
-      }
       const text = dashboardMessage(this.store.load(), Date.now() / 1000);
       const id = await this.transport.send(text);
       this.store.set("dashboard", JSON.stringify({ id, text }));
+      if (old) await this.transport.remove(old.id);
     });
   }
 
